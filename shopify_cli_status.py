@@ -144,16 +144,38 @@ def atomic_write_json(path, payload):
 
 CLI_BASENAMES = {"shopify", "shopify.js", "shopify.cmd", "shopify-cli"}
 
+# The Shopify CLI is a Node package; the process executing it is one of these
+# (or a standalone binary named shopify). Anything else with "shopify theme
+# dev" in its arguments — an editor opening files by those names, a shell
+# wrapper quoting the command — is not the CLI and must not be listed (or
+# signalled) as a session.
+RUNTIME_EXES = {"node", "nodejs", "bun", "deno"}
+
 
 def cli_index(argv):
-  """Index of the token that is the Shopify CLI executable, or -1."""
-  for index, token in enumerate(argv):
+  """Index of the token that is the Shopify CLI executable, or -1.
+
+  Only argv[0] (a binary or shim) or argv[1] (interpreter + script) can be
+  the CLI. A `shopify` token deeper in argv belongs to some other program's
+  arguments. Package-runner wrappers (`npx shopify theme dev`) are rejected
+  here too — the CLI child process they spawn is matched on its own, which
+  is also the right target for a stop signal."""
+  for index, token in enumerate(argv[:2]):
     base = os.path.basename(token)
     if base in CLI_BASENAMES:
       return index
     if token.endswith("/@shopify/cli/bin/run.js") or token.endswith("/@shopify/cli/bin/run"):
       return index
   return -1
+
+
+def executable_is_cli(pid):
+  """True when the process image is a JS runtime or a shopify binary."""
+  try:
+    exe = os.path.basename(os.readlink("/proc/%d/exe" % pid))
+  except OSError:
+    return False
+  return exe in RUNTIME_EXES or exe in CLI_BASENAMES
 
 
 def dev_command(argv):
@@ -340,6 +362,8 @@ def scan_processes():
     argv = [token for token in raw.split("\0") if token != ""]
     kind, dev_index = dev_command(argv)
     if kind is None:
+      continue
+    if not executable_is_cli(pid):
       continue
     ppid, start_ticks, started_ts = process_start(pid, hz, btime)
     found[pid] = {

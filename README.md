@@ -25,7 +25,8 @@ Tailscale and Dropbox panels.
   SIGTERM if it ignores that — same as Ctrl+C in its terminal)
 - Shows the installed CLI version in the panel header, and theme dev modes
   (`--theme-editor-sync`, `--live-reload`) in the session line
-- Detects sessions by inspecting `/proc` — no `pgrep -f` false positives from
+- Detects sessions by inspecting `/proc` and verifying the process executable
+  is actually the CLI's runtime — no `pgrep -f`-style false positives from
   editors or shells that merely mention "shopify theme dev"
 - Store, theme ID, port and app details are read from the process's flags and
   environment (`--store`, `-e`, `SHOPIFY_FLAG_STORE`, …), the listening

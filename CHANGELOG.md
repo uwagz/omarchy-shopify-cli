@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-08-20
+
+### Fixed
+- Session detection now requires the process executable to be a JS runtime
+  (node/bun/deno) or a `shopify` binary, and the CLI token to be argv[0] or
+  argv[1]. Previously an unrelated same-user process merely carrying
+  `shopify theme dev` in its arguments (an editor opening files by those
+  names, a shell wrapper quoting the command) could be listed as a session —
+  and therefore sent SIGINT/SIGTERM from the panel.
+
 ## [1.0.0] — 2026-08-19
 
 First release.
