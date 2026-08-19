@@ -6,8 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [1.0.0] — 2026-08-19
 
-First release as a native Omarchy 4 shell plugin (successor of the Waybar
-module [shopify-cli-status](https://github.com/uwagz/shopify-cli-status)).
+First release.
 
 ### Added
 - `bar-widget` plugin `uwagz.shopify-cli` with a native bag icon and count badge

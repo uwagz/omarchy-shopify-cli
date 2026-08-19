@@ -5,10 +5,8 @@ Native [Omarchy](https://omarchy.org) shell plugin that shows your running
 keyboard-friendly panel to open previews, the theme editor, admin links,
 copy URLs, and stop sessions.
 
-It is the Omarchy 4 successor of
-[shopify-cli-status](https://github.com/uwagz/shopify-cli-status) (a Waybar
-module), rebuilt as a first-class `bar-widget` plugin in the same style as the
-built-in Tailscale and Dropbox panels.
+Built as a first-class `bar-widget` plugin in the same style as the built-in
+Tailscale and Dropbox panels.
 
 ## Features
 
@@ -89,6 +87,18 @@ omarchy-shell uwagz.shopify-cli sessions   # JSON array with every session
 omarchy-shell uwagz.shopify-cli refresh
 ```
 
+## Removal
+
+```bash
+omarchy plugin remove uwagz.shopify-cli
+```
+
+This deletes `~/.config/omarchy/plugins/uwagz.shopify-cli/` and takes the
+widget out of the bar. The plugin's only other footprint is its cache at
+`~/.cache/omarchy-shopify-cli/`, safe to delete at any time. It never edits
+`~/.config/omarchy/shell.json` or any other user configuration itself —
+enable/disable and placement go through `omarchy plugin` / `omarchy bar`.
+
 ## Settings
 
 Configure from the bar settings UI, or with `omarchy bar set`:
@@ -155,15 +165,6 @@ node -e 'console.log(require("./Model.js").linkOptions({kind:"theme",store:"my-s
 
 Saving files under `~/.config/omarchy/plugins/` hot-reloads the plugin. Shell
 logs are in `journalctl --user`.
-
-## Migrating from shopify-cli-status
-
-The Waybar module and its `~/.config/shopify-cli-status/config` are no longer
-used. The equivalents of its options are `showWhenIdle`, `showLabel`
-(`LABEL_TEXT` / `SHOW_FULL_URL`) and `refreshIntervalSec`; session links and
-durations are always available in the panel. You can remove
-`~/.config/waybar/scripts/shopify-cli-status.sh` and the `custom/shopify-cli-status`
-block from your Waybar config.
 
 ## License
 
