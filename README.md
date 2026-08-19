@@ -8,6 +8,8 @@ copy URLs, and stop sessions.
 Built as a first-class `bar-widget` plugin in the same style as the built-in
 Tailscale and Dropbox panels.
 
+![Shopify CLI sessions in the Omarchy bar](preview.png)
+
 ## Features
 
 - Bar icon that dims when idle and shows a dot when more than one session runs
