@@ -14,6 +14,24 @@ All notable changes to this project are documented here. The format follows
   names, a shell wrapper quoting the command) could be listed as a session —
   and therefore sent SIGINT/SIGTERM from the panel.
 
+## [1.0.1] — 2026-08-20
+
+### Security
+- Session detection now requires the process executable to be a JS runtime
+  (node/bun/deno) or a `shopify` binary, and the CLI token to be argv[0] or
+  argv[1]. An unrelated same-user process merely carrying `shopify theme dev`
+  in its arguments (an editor with those files open, a shell wrapper) can no
+  longer be listed as a session — or sent a stop signal.
+- Stop now goes through a helper that only signals when the target pid still
+  has the exact start time the session was seen with, closing a pid-reuse
+  race where a recycled pid could be signalled.
+- Session-derived text (theme/app names, project folder, CLI errors) is
+  rendered as plain text and stripped of markup, so a hostile
+  `shopify.app.toml` / `theme info` value cannot inject QML rich text (which
+  would let an `<img>` tag beacon out or load a local file).
+- Links are opened only when they are `http(s)` URLs, and CLI flags are passed
+  in `--flag=value` form so an attacker-controlled value cannot become a flag.
+
 ## [1.0.0] — 2026-08-19
 
 First release.

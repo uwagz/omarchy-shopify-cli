@@ -2,6 +2,14 @@
 // can be exercised from node (`node -e 'require("./Model.js")'`) and from the
 // shell.
 
+// Strip angle brackets so a session-derived string can never be interpreted
+// as rich text by a QML Text in AutoText mode (Qt fetches <img src> on
+// render). Applied only to display strings; values used for copy/open keep
+// their exact bytes.
+function plain(value) {
+  return String(value === undefined || value === null ? "" : value).replace(/[<>]/g, "")
+}
+
 function normalizeStore(value) {
   var text = String(value || "").trim().toLowerCase()
   if (text === "") return ""
@@ -57,6 +65,10 @@ function countSummary(themeCount, appCount) {
 // Primary name for a session row: the store is what you think of first, then
 // the project folder, then whatever the CLI told us.
 function sessionTitle(session) {
+  return plain(sessionTitleRaw(session))
+}
+
+function sessionTitleRaw(session) {
   if (!session) return "Session"
   if (session.storeShort) return String(session.storeShort)
   if (session.store) return shortStore(session.store)
@@ -74,12 +86,20 @@ function barLabel(sessions, themeCount, appCount) {
   return countSummary(themeCount, appCount)
 }
 
+function isHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || ""))
+}
+
 function previewUrl(session) {
   if (!session || session.kind !== "theme") return ""
-  if (session.previewUrl) return String(session.previewUrl)
+  if (session.previewUrl && isHttpUrl(session.previewUrl)) return String(session.previewUrl)
   var host = String(session.host || "127.0.0.1")
   var port = Number(session.port) || 9292
   return "http://" + host + ":" + port
+}
+
+function safeExternalUrl(value) {
+  return isHttpUrl(value) ? String(value) : ""
 }
 
 function storefrontUrl(session) {
@@ -94,7 +114,7 @@ function adminUrl(session) {
 
 function editorUrl(session) {
   if (!session || session.kind !== "theme") return ""
-  if (session.editorUrl) return String(session.editorUrl)
+  if (session.editorUrl && isHttpUrl(session.editorUrl)) return String(session.editorUrl)
   var store = normalizeStore(session.store)
   var id = String(session.themeId || "")
   return store && id ? "https://" + store + "/admin/themes/" + id + "/editor" : ""
@@ -156,7 +176,7 @@ function sessionsSignature(sessions) {
 function primaryUrl(session) {
   if (!session) return ""
   if (session.kind === "theme") return previewUrl(session)
-  return localAppUrl(session) || adminAppUrl(session) || String(session.applicationUrl || "") || adminUrl(session)
+  return localAppUrl(session) || adminAppUrl(session) || safeExternalUrl(session.applicationUrl) || adminUrl(session)
 }
 
 function primaryHint(session) {
@@ -186,7 +206,7 @@ function linkOptions(session) {
     push("localApp", "Local app", localAppUrl(session))
     push("graphiql", "GraphiQL (g)", graphiqlUrl(session))
     push("adminApp", "App in admin", adminAppUrl(session))
-    push("appUrl", "App URL", session.applicationUrl)
+    push("appUrl", "App URL", safeExternalUrl(session.applicationUrl))
   }
   push("storefront", "Storefront", storefrontUrl(session))
   push("admin", "Store admin", adminUrl(session))
@@ -227,15 +247,15 @@ function sessionMeta(session, nowSec) {
   } else {
     parts.push(session.appName ? String(session.appName) : "App dev")
   }
-  if (session.projectName && String(session.projectName) !== sessionTitle(session)) parts.push(String(session.projectName))
+  if (session.projectName && String(session.projectName) !== sessionTitleRaw(session)) parts.push(String(session.projectName))
   parts.push(formatDuration(elapsedSeconds(session, nowSec)))
-  return parts.join(" · ")
+  return plain(parts.join(" · "))
 }
 
 function sessionDetailHint(session) {
   if (!session) return ""
   if (session.detailsState === "pending") return "Fetching details…"
-  if (session.detailsState === "error") return String(session.detailsError || "Details unavailable")
+  if (session.detailsState === "error") return plain(session.detailsError || "Details unavailable")
   return ""
 }
 
@@ -249,7 +269,7 @@ function tooltipText(sessions, installed, nowSec) {
     var session = list[i]
     var line = sessionTitle(session) + " (" + kindLabel(session.kind) + ")"
     line += " · " + formatDuration(elapsedSeconds(session, nowSec))
-    lines.push(line)
+    lines.push(plain(line))
   }
   return lines.join("\n")
 }
@@ -286,6 +306,9 @@ function parseStatus(raw) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    plain: plain,
+    isHttpUrl: isHttpUrl,
+    sessionTitleRaw: sessionTitleRaw,
     normalizeStore: normalizeStore,
     shortStore: shortStore,
     kindLabel: kindLabel,

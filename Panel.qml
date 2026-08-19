@@ -299,7 +299,7 @@ Panel {
               // title Text is AutoText, so a <font> tag switches it to styled
               // text without touching the shared component.
               title: shopify.cliVersion !== ""
-                ? "Shopify CLI <font color=\"" + String(root.dim) + "\" size=\"-1\">" + shopify.cliVersion + "</font>"
+                ? "Shopify CLI <font color=\"" + String(root.dim) + "\" size=\"-1\">" + shopify.cliVersion.replace(/[^0-9A-Za-z.\-+]/g, "") + "</font>"
                 : "Shopify CLI"
               meta: root.heroMeta
               foreground: root.foreground
@@ -587,6 +587,7 @@ Panel {
             id: titleText
             width: Math.min(implicitWidth, Math.max(0, titleRow.width - kindTag.implicitWidth - titleRow.spacing))
             text: sessionRow.title
+          textFormat: Text.PlainText
             color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.body
@@ -607,6 +608,7 @@ Panel {
         Text {
           Layout.fillWidth: true
           text: sessionRow.stopping ? "Stopping…" : sessionRow.meta
+          textFormat: Text.PlainText
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
@@ -617,6 +619,7 @@ Panel {
           Layout.fillWidth: true
           visible: sessionRow.hint !== "" && !sessionRow.stopping
           text: sessionRow.hint
+          textFormat: Text.PlainText
           color: sessionRow.session && sessionRow.session.detailsState === "error" ? root.urgent : root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
@@ -789,6 +792,7 @@ Panel {
         Text {
           Layout.fillWidth: true
           text: menuChoice.label
+          textFormat: Text.PlainText
           color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
@@ -799,6 +803,7 @@ Panel {
           Layout.fillWidth: true
           visible: menuChoice.detail !== ""
           text: menuChoice.detail
+          textFormat: Text.PlainText
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption

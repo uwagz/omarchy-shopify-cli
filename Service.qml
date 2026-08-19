@@ -146,7 +146,9 @@ Item {
 
   function openUrl(url) {
     var target = String(url || "").trim()
-    if (target === "") return
+    // Only ever hand http(s) to the launcher; a session-derived value could
+    // otherwise be a non-http scheme or start with "-".
+    if (!Model.isHttpUrl(target)) return
     Quickshell.execDetached(["omarchy-launch-browser", target])
   }
 
@@ -179,10 +181,10 @@ Item {
   function openConsole(session) {
     if (!session || session.kind !== "theme") return
     var args = ["theme", "console"]
-    if (session.store) args.push("--store", session.store)
-    if (session.themeId) args.push("--theme", session.themeId)
-    if (session.environment) args.push("--environment", session.environment)
-    if (session.authAlias) args.push("--auth-alias", session.authAlias)
+    if (session.store) args.push("--store=" + session.store)
+    if (session.themeId) args.push("--theme=" + session.themeId)
+    if (session.environment) args.push("--environment=" + session.environment)
+    if (session.authAlias) args.push("--auth-alias=" + session.authAlias)
     runInTerminal(session.projectDir, args)
   }
 
@@ -190,9 +192,9 @@ Item {
   function openAppLogs(session) {
     if (!session || session.kind !== "app") return
     var args = ["app", "logs"]
-    if (session.config) args.push("--config", session.config)
-    if (session.store) args.push("--store", session.store)
-    if (session.authAlias) args.push("--auth-alias", session.authAlias)
+    if (session.config) args.push("--config=" + session.config)
+    if (session.store) args.push("--store=" + session.store)
+    if (session.authAlias) args.push("--auth-alias=" + session.authAlias)
     runInTerminal(session.projectDir, args)
   }
 
@@ -225,14 +227,21 @@ Item {
   // clean up after itself. A process started in the background by a
   // non-interactive shell ignores SIGINT, so if it is still around a few
   // seconds later the settle timer follows up with SIGTERM. Never SIGKILL.
-  property string stoppingPid: ""
+  property var stoppingSession: null
+
+  function signalSession(session, name) {
+    // Delegate to the helper, which only signals when the process still has
+    // the exact start time we saw — so a recycled pid is never touched.
+    Quickshell.execDetached(["python3", "-S", helperPath, "--signal",
+      String(session.pid), String(session.startTicks || 0), name])
+  }
 
   function stopSession(session) {
     if (!session || !session.pid) return
     stoppingId = String(session.id)
-    stoppingPid = String(session.pid)
+    stoppingSession = session
     flashStatus("Stopping " + Model.sessionTitle(session) + "…")
-    Quickshell.execDetached(["kill", "-INT", stoppingPid])
+    signalSession(session, "INT")
     settleTimer.ticks = 0
     settleTimer.restart()
   }
@@ -284,13 +293,13 @@ Item {
     onTriggered: {
       settleTimer.ticks += 1
       root.refresh()
-      if (settleTimer.ticks === 3 && root.stoppingId !== "" && root.stoppingPid !== "") {
-        Quickshell.execDetached(["kill", "-TERM", root.stoppingPid])
+      if (settleTimer.ticks === 3 && root.stoppingId !== "" && root.stoppingSession) {
+        root.signalSession(root.stoppingSession, "TERM")
       }
       if (settleTimer.ticks >= 8 || root.stoppingId === "") {
         settleTimer.running = false
         root.stoppingId = ""
-        root.stoppingPid = ""
+        root.stoppingSession = null
       }
     }
   }

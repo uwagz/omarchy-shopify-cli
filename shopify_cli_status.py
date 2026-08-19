@@ -503,17 +503,19 @@ def run_fetch(args):
     payload["error"] = "Shopify CLI not found"
   else:
     if kind == "theme":
-      command = [shopify, "theme", "info", "--development", "--json", "--no-color", "--path", project_dir]
+      # `--flag=value` (not `--flag value`): a value that begins with "-"
+      # then stays the flag's argument instead of parsing as a new option.
+      command = [shopify, "theme", "info", "--development", "--json", "--no-color", "--path=" + project_dir]
       if extra.get("store"):
-        command += ["--store", extra["store"]]
+        command.append("--store=" + extra["store"])
       if extra.get("environment"):
-        command += ["--environment", extra["environment"]]
+        command.append("--environment=" + extra["environment"])
     else:
-      command = [shopify, "app", "info", "--json", "--no-color", "--path", project_dir]
+      command = [shopify, "app", "info", "--json", "--no-color", "--path=" + project_dir]
       if extra.get("config"):
-        command += ["--config", extra["config"]]
+        command.append("--config=" + extra["config"])
     if extra.get("authAlias"):
-      command += ["--auth-alias", extra["authAlias"]]
+      command.append("--auth-alias=" + extra["authAlias"])
     env = dict(os.environ)
     # Never let a background status probe pop a browser login or an
     # interactive prompt: CI mode makes the CLI fail fast instead.
@@ -621,6 +623,7 @@ def build_session(proc, installed, want_details, now):
     "projectDir": project_dir,
     "projectName": os.path.basename(project_dir.rstrip("/")) if project_dir else "",
     "startedTs": proc["startedTs"],
+    "startTicks": proc["startTicks"],
     "elapsedSec": max(0, now - proc["startedTs"]) if proc["startedTs"] else 0,
     "store": "",
     "storeShort": "",
@@ -829,9 +832,44 @@ def build_status(want_details):
   }
 
 
+# The panel captures a pid at poll time; by the time the user clicks Stop the
+# session may have exited and Linux may have recycled that pid to another of
+# the user's processes. Signal only when the process at that pid still has the
+# exact start time the session was seen with, so a recycled pid is left alone.
+def run_signal(args):
+  """--signal <pid> <startTicks> <INT|TERM>"""
+  if len(args) < 3:
+    return 2
+  try:
+    pid = int(args[0])
+    want_ticks = int(args[1])
+  except ValueError:
+    return 2
+  name = str(args[2]).upper()
+  import signal as signal_module
+  sig = {"INT": signal_module.SIGINT, "TERM": signal_module.SIGTERM}.get(name)
+  if sig is None or pid <= 1:
+    return 2
+  try:
+    if os.stat("/proc/%d" % pid).st_uid != os.getuid():
+      return 1
+  except OSError:
+    return 1
+  _, start_ticks, _ = process_start(pid, clock_ticks(), 0)
+  if start_ticks != want_ticks:
+    return 1
+  try:
+    os.kill(pid, sig)
+  except OSError:
+    return 1
+  return 0
+
+
 def main(argv):
   if argv and argv[0] == "--fetch":
     return run_fetch(argv[1:])
+  if argv and argv[0] == "--signal":
+    return run_signal(argv[1:])
   want_details = "--no-details" not in argv
   print(_json_dumps(build_status(want_details)))
   return 0
