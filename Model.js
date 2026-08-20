@@ -94,6 +94,7 @@ function previewUrl(session) {
   if (!session || session.kind !== "theme") return ""
   if (session.previewUrl && isHttpUrl(session.previewUrl)) return String(session.previewUrl)
   var host = String(session.host || "127.0.0.1")
+  if (!/^[A-Za-z0-9.\-]+$/.test(host)) host = "127.0.0.1"
   var port = Number(session.port) || 9292
   return "http://" + host + ":" + port
 }

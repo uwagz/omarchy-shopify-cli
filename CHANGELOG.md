@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] — 2026-08-20
+
+### Security
+- Defense-in-depth from a second review pass (no exploitable issue found):
+  the background detail fetch passes its internal flags in `--flag=value` form
+  (so a value starting with `-` is preserved, not dropped); the theme preview
+  host is restricted to a hostname charset before building the URL; and the
+  terminal launcher passes `--` before the command so a cli path can never be
+  read as an `xdg-terminal-exec` option.
+
+### Documentation
+- Noted that the `sessions` IPC returns upstream strings verbatim (consume as
+  data, do not render as markup).
+
 ## [1.0.2] — 2026-08-20
 
 ### Security

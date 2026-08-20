@@ -90,6 +90,10 @@ omarchy-shell uwagz.shopify-cli sessions   # JSON array with every session
 omarchy-shell uwagz.shopify-cli refresh
 ```
 
+`sessions` returns upstream strings (theme/app names, store, error text)
+verbatim — consume it as data (parse the JSON), never `eval` it or render it
+as markup.
+
 ## Removal
 
 ```bash

@@ -172,6 +172,10 @@ Item {
     var cli = cliPath || "shopify"
     var command = ["setsid", "uwsm-app", "--", "xdg-terminal-exec"]
     if (projectDir) command.push("--dir=" + projectDir)
+    // "--" ends xdg-terminal-exec's own option parsing; everything after is
+    // the command + args, so a cli path (or arg) can never be read as an xte
+    // option.
+    command.push("--")
     command.push(cli)
     for (var i = 0; i < args.length; i++) command.push(String(args[i]))
     Quickshell.execDetached(command)

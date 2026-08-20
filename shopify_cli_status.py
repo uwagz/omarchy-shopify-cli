@@ -470,14 +470,16 @@ def start_fetch(proc, cache_path, project_dir):
     handle.write(str(int(time.time())))
   command = [sys.executable, os.path.abspath(__file__), "--fetch", proc["kind"], cache_path, project_dir]
   flags = proc["flags"]
+  # `--flag=value`: a value that begins with "-" is kept as the flag's value
+  # (parse_flags on the other side would otherwise skip a bare "-…" token).
   if flags.get("store"):
-    command += ["--store", flags["store"]]
+    command.append("--store=" + flags["store"])
   if flags.get("authAlias"):
-    command += ["--auth-alias", flags["authAlias"]]
+    command.append("--auth-alias=" + flags["authAlias"])
   if flags.get("environment"):
-    command += ["--environment", flags["environment"]]
+    command.append("--environment=" + flags["environment"])
   if flags.get("config"):
-    command += ["--config", flags["config"]]
+    command.append("--config=" + flags["config"])
   import subprocess
   try:
     subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
