@@ -15,6 +15,10 @@ All notable changes to this project are documented here. The format follows
   fails, never a recycled pid. Falls back to a double-checked `kill` only on
   kernels/interpreters without pidfd.
 
+### Documentation
+- Added a Security & privacy section and corrected the detection description
+  to match the hardened `/proc` matching.
+
 ## [1.0.1] — 2026-08-20
 
 ### Fixed

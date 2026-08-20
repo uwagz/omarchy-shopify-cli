@@ -129,16 +129,20 @@ status.py         3-line entry point
 shopify_cli_status.py /proc scan → sessions JSON; detached, cached CLI lookups
 ```
 
-`status.py` walks `/proc` for processes owned by you whose argv is
-`… shopify <theme|app> dev …` (the CLI's own helper children such as
-`shopify notifications list` are ignored), reads their cwd, flags, environment
-and listening ports (for `app dev`, across the whole child process tree, which
-is how GraphiQL on `:3457` and a `--use-localhost` app URL are found), and
-prints JSON. The CLI version comes from the package.json next to the resolved
+`status.py` walks `/proc` for processes **owned by you** that are a Shopify
+CLI dev invocation: the `shopify` token must be `argv[0]` or `argv[1]` (a
+binary, or an interpreter running the CLI script) and `/proc/<pid>/exe` must
+be a JS runtime (`node`/`bun`/`deno`) or a `shopify` binary — so an unrelated
+process that merely has `shopify theme dev` somewhere in its arguments is not
+treated as a session. The CLI's own helper children (`shopify notifications
+list`) are ignored. It reads each session's cwd, flags, environment and
+listening ports (for `app dev`, across the whole child process tree, which is
+how GraphiQL on `:3457` and a `--use-localhost` app URL are found), and prints
+JSON. The CLI version comes from the package.json next to the resolved
 `shopify` executable (resolving through a mise/asdf shim once, cached), never
 from running `shopify version`. When `fetchDetails` is on and a theme
 session's details are not cached yet, it spawns a detached copy of itself that
-runs `shopify theme info --development --json --path <project> [--store …]`
+runs `shopify theme info --development --json --path=<project> [--store=…]`
 with `CI=1` (so it can never pop a login prompt) and writes the result to
 `~/.cache/omarchy-shopify-cli/<pid>-<start>.json`; the next poll picks it up. Cache entries
 for sessions that have exited are removed automatically.
@@ -154,6 +158,35 @@ Tailscale and Dropbox panels. The session list is only republished to the UI
 when something other than the clock changed, so rows are not rebuilt on every
 poll; the duration ticker runs at 1 s only while a session is under a minute
 old (30 s after), and the hero phrases only while the panel is open.
+
+## Security & privacy
+
+Like every Omarchy shell plugin, this runs as unsandboxed code inside
+`omarchy-shell`. What it actually does:
+
+- **Only your own processes.** The `/proc` scan is filtered to your UID, and a
+  process is treated as a session only after the executable and argv checks
+  above — not on a substring match.
+- **No credentials.** Only a whitelist of `SHOPIFY_FLAG_*` display keys (store,
+  port, theme id, environment, config, auth-alias nickname) is read from a
+  session's environment. `SHOPIFY_CLI_THEME_TOKEN`, passwords and other secrets
+  are never read, cached, or emitted. `--auth-alias` is a profile nickname, not
+  a secret; the Shopify CLI authenticates itself from its own store.
+- **Read-only CLI use.** The only commands ever run are `shopify theme info`
+  and `shopify app info`, detached, with `CI=1` so they can't prompt or log in.
+  Never push/pull/publish/deploy. Terminal actions (`theme console`, `app logs`)
+  are launched only when you pick them, in a visible terminal.
+- **Stopping is signal-safe.** Stop opens a `pidfd` for the exact process
+  instance and signals through it (`SIGINT`, then `SIGTERM`), so a pid reused
+  after the session exits can never be signalled. It only ever signals your own
+  processes and never uses `SIGKILL`.
+- **Untrusted repo data is inert.** Values from a cloned repo's
+  `shopify.app.toml` / `shopify.theme.toml` or from CLI JSON are rendered as
+  plain text (no QML rich-text/`<img>` injection), links are opened only when
+  they are `http(s)` URLs, and CLI flags are passed as `--flag=value`.
+- **Writes stay in the cache.** The only files written are under
+  `~/.cache/omarchy-shopify-cli/`. It never edits `shell.json` or any other
+  configuration.
 
 ## Development
 
