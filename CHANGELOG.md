@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-08-20
+
+### Security
+- Stop no longer signals a numeric pid after a separate start-time check
+  (a time-of-check/time-of-use race: the pid could be reused between the
+  check and the signal). It now opens a `pidfd` for the process, verifies the
+  pinned process still has the session's start time, then delivers the signal
+  through the fd — `pidfd_send_signal` reaches that exact process instance or
+  fails, never a recycled pid. Falls back to a double-checked `kill` only on
+  kernels/interpreters without pidfd.
+
 ## [1.0.1] — 2026-08-20
 
 ### Fixed

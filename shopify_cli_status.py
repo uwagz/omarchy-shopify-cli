@@ -855,8 +855,38 @@ def run_signal(args):
       return 1
   except OSError:
     return 1
+
+  # Delivering the signal to a numeric pid is a TOCTOU: the process can exit
+  # and the pid be recycled between the start-time check and the kill, so the
+  # signal would hit an unrelated process. A pidfd pins the exact process
+  # instance — pidfd_send_signal is delivered to that instance or fails with
+  # ESRCH, never to a reused pid. We open the pidfd first, then confirm the
+  # pinned process still has the session's start time, then signal the fd.
+  pidfd_open = getattr(os, "pidfd_open", None)
+  pidfd_send = getattr(signal_module, "pidfd_send_signal", None)
+  if pidfd_open is not None and pidfd_send is not None:
+    try:
+      pidfd = pidfd_open(pid)
+    except OSError:
+      return 1
+    try:
+      _, start_ticks, _ = process_start(pid, clock_ticks(), 0)
+      if start_ticks != want_ticks:
+        return 1
+      pidfd_send(pidfd, sig)
+      return 0
+    except (OSError, ValueError):
+      return 1
+    finally:
+      os.close(pidfd)
+
+  # Fallback for kernels/interpreters without pidfd: re-check immediately
+  # before the kill to narrow (not eliminate) the window.
   _, start_ticks, _ = process_start(pid, clock_ticks(), 0)
   if start_ticks != want_ticks:
+    return 1
+  _, start_ticks2, _ = process_start(pid, clock_ticks(), 0)
+  if start_ticks2 != want_ticks:
     return 1
   try:
     os.kill(pid, sig)
