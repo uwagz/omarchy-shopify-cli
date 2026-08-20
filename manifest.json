@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "uwagz.shopify-cli",
   "name": "Shopify CLI",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "uwagz",
   "license": "MIT",
   "homepage": "https://github.com/uwagz/omarchy-shopify-cli",

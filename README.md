@@ -184,10 +184,16 @@ Like every Omarchy shell plugin, this runs as unsandboxed code inside
   instance and signals through it (`SIGINT`, then `SIGTERM`), so a pid reused
   after the session exits can never be signalled. It only ever signals your own
   processes and never uses `SIGKILL`.
-- **Untrusted repo data is inert.** Values from a cloned repo's
-  `shopify.app.toml` / `shopify.theme.toml` or from CLI JSON are rendered as
-  plain text (no QML rich-text/`<img>` injection), links are opened only when
-  they are `http(s)` URLs, and CLI flags are passed as `--flag=value`.
+- **Untrusted repo data is inert.** A dev command can be supplied by the repo
+  itself, so its flags and config are treated as untrusted: values from
+  `shopify.app.toml` / `shopify.theme.toml` or CLI JSON are rendered as plain
+  text (no QML rich-text/`<img>` injection); a Shopify link is only built from
+  a validated `*.myshopify.com` host with a numeric theme id or an opaque
+  client id, so a link labelled "Store admin" cannot point elsewhere; other
+  links open only for `http(s)` URLs; the preview host is restricted to
+  loopback/private addresses; the project directory is verified to be a real
+  directory before it reaches `xdg-open` or a terminal; and CLI flags are
+  passed as `--flag=value`.
 - **Writes stay in the cache.** The only files written are under
   `~/.cache/omarchy-shopify-cli/`. It never edits `shell.json` or any other
   configuration.

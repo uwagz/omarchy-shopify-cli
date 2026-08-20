@@ -127,7 +127,9 @@ def load_toml(path):
   try:
     with open(path, "rb") as handle:
       return tomllib.load(handle)
-  except (OSError, ValueError, tomllib.TOMLDecodeError):
+  except Exception:
+    # Untrusted input: a deeply nested table raises RecursionError, which is
+    # not an OSError/ValueError. Nothing here is worth crashing the poll for.
     return {}
 
 
@@ -537,7 +539,7 @@ def run_fetch(args):
         try:
           data = json.loads(candidate)
           break
-        except ValueError:
+        except Exception:
           continue
       if isinstance(data, dict):
         payload["ok"] = True
@@ -594,8 +596,6 @@ def cleanup_cache(keep):
   for name in names:
     if not (name.endswith(".json") or name.endswith(".fetching") or name.endswith(".tmp")):
       continue
-    if name == "cli-target":
-      continue
     base = name.split(".")[0]
     if base in keep:
       continue
@@ -618,7 +618,15 @@ def build_session(proc, installed, want_details, now):
     pass
   project_dir = flags.get("path") or cwd
   if project_dir and not os.path.isabs(project_dir) and cwd:
-    project_dir = os.path.normpath(os.path.join(cwd, project_dir))
+    project_dir = os.path.join(cwd, project_dir)
+  project_dir = os.path.normpath(project_dir) if project_dir else ""
+  # The dev command may come from the repo itself (npm script, Makefile), so
+  # `--path` is untrusted and can name a file or a path outside the project.
+  # Everything downstream — the "reveal folder" xdg-open, the terminal's
+  # --dir=, the fetch cwd — expects a real directory, so fall back to the
+  # process's own cwd when it is not one.
+  if project_dir and not os.path.isdir(project_dir):
+    project_dir = cwd if cwd and os.path.isdir(cwd) else ""
   session = {
     "pid": pid,
     "kind": proc["kind"],
@@ -811,7 +819,12 @@ def build_status(want_details):
   keep = set()
   hint_scripts = []
   for proc in scan_processes():
-    session, cache_key = build_session(proc, installed, want_details, now)
+    try:
+      session, cache_key = build_session(proc, installed, want_details, now)
+    except Exception:
+      # Skip a session we cannot describe rather than failing the whole poll
+      # and leaving the panel stale for every other session.
+      continue
     sessions.append(session)
     keep.add(cache_key)
     index = cli_index(proc["argv"])
@@ -851,6 +864,10 @@ def run_signal(args):
   import signal as signal_module
   sig = {"INT": signal_module.SIGINT, "TERM": signal_module.SIGTERM}.get(name)
   if sig is None or pid <= 1:
+    return 2
+  # An unknown start time (0) must never match: /proc/<pid>/stat being
+  # unreadable would otherwise let a recycled pid pass the identity check.
+  if want_ticks <= 0:
     return 2
   try:
     if os.stat("/proc/%d" % pid).st_uid != os.getuid():
@@ -903,7 +920,11 @@ def main(argv):
   if argv and argv[0] == "--signal":
     return run_signal(argv[1:])
   want_details = "--no-details" not in argv
-  print(_json_dumps(build_status(want_details)))
+  # Paths read from /proc can hold non-UTF-8 bytes (surrogateescape), which
+  # print() refuses to encode. Write bytes with replacement instead.
+  payload = _json_dumps(build_status(want_details)).encode("utf-8", "replace")
+  sys.stdout.buffer.write(payload + b"\n")
+  sys.stdout.buffer.flush()
   return 0
 
 

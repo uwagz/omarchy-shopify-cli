@@ -333,7 +333,10 @@ Panel {
           Text {
             visible: shopify.actionStatus !== "" || shopify.lastError !== ""
             width: parent.width
-            text: shopify.actionStatus !== "" ? shopify.actionStatus : shopify.lastError
+            // Carries CLI stderr, so it gets the same plain-text treatment as
+            // every other data-bearing Text in this panel.
+            text: Model.plain(shopify.actionStatus !== "" ? shopify.actionStatus : shopify.lastError)
+            textFormat: Text.PlainText
             color: shopify.lastError !== "" && shopify.actionStatus === "" ? root.urgent : root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall

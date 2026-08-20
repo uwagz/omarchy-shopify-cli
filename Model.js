@@ -19,6 +19,50 @@ function normalizeStore(value) {
   return text
 }
 
+// A store value only earns a Shopify link if it is a syntactically valid
+// hostname AND a Shopify-owned domain. `normalizeStore` alone is not enough:
+// it keeps everything before the first "/", so a value such as
+// "real-store.myshopify.com@evil.example.com" survives and would produce a
+// link labelled "Store admin" that actually opens evil.example.com. The dev
+// command can come from the repo being worked on, so these values are
+// untrusted.
+function isShopifyStore(value) {
+  var store = normalizeStore(value)
+  if (!/^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/.test(store)) return false
+  return /\.myshopify\.com$/.test(store)
+}
+
+// Theme ids are numeric and client ids are opaque tokens; anything else would
+// be path-injected into an admin URL.
+function isThemeId(value) {
+  return /^[0-9]+$/.test(String(value || ""))
+}
+
+function isClientId(value) {
+  return /^[A-Za-z0-9_-]+$/.test(String(value || ""))
+}
+
+// The theme preview server is local by definition, and `--host` is part of
+// the same untrusted command line, so only loopback/private addresses are
+// honoured — anything routable falls back to loopback.
+function safePreviewHost(value) {
+  var host = String(value || "").trim().toLowerCase()
+  if (host === "" || host === "0.0.0.0" || host === "::" || host === "*") return "127.0.0.1"
+  if (host === "localhost") return "localhost"
+  if (host === "::1" || host === "[::1]") return "[::1]"
+  var parts = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (parts) {
+    var a = Number(parts[1]), b = Number(parts[2])
+    if (a <= 255 && b <= 255 && Number(parts[3]) <= 255 && Number(parts[4]) <= 255) {
+      if (a === 127) return host
+      if (a === 10) return host
+      if (a === 192 && b === 168) return host
+      if (a === 172 && b >= 16 && b <= 31) return host
+    }
+  }
+  return "127.0.0.1"
+}
+
 function shortStore(value) {
   var store = normalizeStore(value)
   var suffix = ".myshopify.com"
@@ -93,8 +137,7 @@ function isHttpUrl(value) {
 function previewUrl(session) {
   if (!session || session.kind !== "theme") return ""
   if (session.previewUrl && isHttpUrl(session.previewUrl)) return String(session.previewUrl)
-  var host = String(session.host || "127.0.0.1")
-  if (!/^[A-Za-z0-9.\-]+$/.test(host)) host = "127.0.0.1"
+  var host = safePreviewHost(session.host)
   var port = Number(session.port) || 9292
   return "http://" + host + ":" + port
 }
@@ -104,44 +147,40 @@ function safeExternalUrl(value) {
 }
 
 function storefrontUrl(session) {
-  var store = normalizeStore(session ? session.store : "")
-  return store ? "https://" + store : ""
+  var store = session ? session.store : ""
+  return isShopifyStore(store) ? "https://" + normalizeStore(store) : ""
 }
 
 function adminUrl(session) {
-  var store = normalizeStore(session ? session.store : "")
-  return store ? "https://" + store + "/admin" : ""
+  var store = session ? session.store : ""
+  return isShopifyStore(store) ? "https://" + normalizeStore(store) + "/admin" : ""
 }
 
 function editorUrl(session) {
   if (!session || session.kind !== "theme") return ""
   if (session.editorUrl && isHttpUrl(session.editorUrl)) return String(session.editorUrl)
-  var store = normalizeStore(session.store)
-  var id = String(session.themeId || "")
-  return store && id ? "https://" + store + "/admin/themes/" + id + "/editor" : ""
+  if (!isShopifyStore(session.store) || !isThemeId(session.themeId)) return ""
+  return "https://" + normalizeStore(session.store) + "/admin/themes/" + session.themeId + "/editor"
 }
 
 // The shareable preview link `shopify theme dev` prints for (p): the live
 // storefront rendered with the development theme.
 function sharePreviewUrl(session) {
   if (!session || session.kind !== "theme") return ""
-  var store = normalizeStore(session.store)
-  var id = String(session.themeId || "")
-  return store && id ? "https://" + store + "/?preview_theme_id=" + id : ""
+  if (!isShopifyStore(session.store) || !isThemeId(session.themeId)) return ""
+  return "https://" + normalizeStore(session.store) + "/?preview_theme_id=" + session.themeId
 }
 
 function adminThemeUrl(session) {
   if (!session || session.kind !== "theme") return ""
-  var store = normalizeStore(session.store)
-  var id = String(session.themeId || "")
-  return store && id ? "https://" + store + "/admin/themes/" + id : ""
+  if (!isShopifyStore(session.store) || !isThemeId(session.themeId)) return ""
+  return "https://" + normalizeStore(session.store) + "/admin/themes/" + session.themeId
 }
 
 function adminAppUrl(session) {
   if (!session || session.kind !== "app") return ""
-  var store = normalizeStore(session.store)
-  var id = String(session.clientId || "")
-  return store && id ? "https://" + store + "/admin/apps/" + id : ""
+  if (!isShopifyStore(session.store) || !isClientId(session.clientId)) return ""
+  return "https://" + normalizeStore(session.store) + "/admin/apps/" + session.clientId
 }
 
 function graphiqlUrl(session) {
@@ -309,6 +348,10 @@ if (typeof module !== "undefined") {
   module.exports = {
     plain: plain,
     isHttpUrl: isHttpUrl,
+    isShopifyStore: isShopifyStore,
+    isThemeId: isThemeId,
+    isClientId: isClientId,
+    safePreviewHost: safePreviewHost,
     sessionTitleRaw: sessionTitleRaw,
     normalizeStore: normalizeStore,
     shortStore: shortStore,

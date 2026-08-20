@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] — 2026-08-20
+
+### Security
+- Shopify links are now built only from a validated store hostname
+  (`*.myshopify.com`), a numeric theme id and an opaque client id. Previously
+  a value such as `real-store.myshopify.com@evil.example.com` in a repo's
+  `shopify.app.toml` produced a menu entry labelled "Store admin" that opened
+  an attacker's site — a credential-phishing vector, since the dev command can
+  come from the repo being worked on.
+- The theme preview link honours `--host` only for loopback/private addresses;
+  a routable host falls back to `127.0.0.1`.
+- A session's project directory is verified to be an existing directory, so a
+  repo-supplied `--path` pointing at a file can no longer be handed to
+  `xdg-open` ("reveal folder"), the terminal's `--dir=`, or the fetch cwd.
+- The stop helper refuses a target whose recorded start time is unknown (`0`),
+  which could otherwise match a process with an unreadable `/proc` entry.
+- The status/error line is rendered as plain text like every other data-bearing
+  label, closing the last rich-text gap in the panel.
+
+### Fixed
+- A malformed `shopify.app.toml` (deeply nested tables → `RecursionError`) or a
+  non-UTF-8 directory name no longer crashes the helper, which previously left
+  the whole widget stale until restart. Output is now written as UTF-8 with
+  replacement, and one unreadable session can no longer blank the others.
+
 ## [1.0.3] — 2026-08-20
 
 ### Security
